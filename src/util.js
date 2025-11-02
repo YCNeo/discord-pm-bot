@@ -1,70 +1,75 @@
 function parseDuration(input) {
     if (!input) return null;
     const s = String(input).trim().toLowerCase();
-
     const regex = /(\d+)\s*(s|sec|secs|second|seconds|m|min|mins|minute|minutes|h|hr|hrs|hour|hours|d|day|days)/g;
-    let total = 0;
-    let match;
-    let found = false;
-
-    while ((match = regex.exec(s)) !== null) {
+    let total = 0, m, found = false;
+    while ((m = regex.exec(s)) !== null) {
         found = true;
-        const n = Number(match[1]);
-        const u = match[2];
-
-        let mult = 0;
-        if (['s', 'sec', 'secs', 'second', 'seconds'].includes(u)) mult = 1000;
-        else if (['m', 'min', 'mins', 'minute', 'minutes'].includes(u)) mult = 60_000;
-        else if (['h', 'hr', 'hrs', 'hour', 'hours'].includes(u)) mult = 3_600_000;
-        else if (['d', 'day', 'days'].includes(u)) mult = 86_400_000;
-
-        total += n * mult;
+        const n = Number(m[1]);
+        const u = m[2];
+        if (['s', 'sec', 'secs', 'second', 'seconds'].includes(u)) total += n * 1000;
+        else if (['m', 'min', 'mins', 'minute', 'minutes'].includes(u)) total += n * 60_000;
+        else if (['h', 'hr', 'hrs', 'hour', 'hours'].includes(u)) total += n * 3_600_000;
+        else if (['d', 'day', 'days'].includes(u)) total += n * 86_400_000;
     }
-
-    if (!found && /^\d+$/.test(s)) {
-        total = Number(s) * 60_000; // 純數字 → 視為分鐘
-        found = true;
-    }
-
-    if (!found || total <= 0) return null;
-    return total;
+    if (!found && /^\d+$/.test(s)) { total = Number(s) * 60_000; found = true; } // 純數字＝分鐘
+    return (!found || total <= 0) ? null : total;
 }
 
+// 嚴格手動解析：只接受 ASCII 的兩種寫法（+ 允許 '/'、允許中間用 'T'）
+// 例：2025-10-31、2025-10-31 18:00、2025/10/31、2025/10/31T18:00
 function parseDateTime(input) {
-    // 支援：
-    // YYYY-MM-DD
-    // YYYY-M-D
-    // YYYY/MM/DD
-    // 上述任一 + 空白或 'T' + HH:mm（HH/分鐘可為 1~2 位數）
-    if (!input && input !== 0) return null;
-    const s = String(input).trim();
+    if (input == null) return null;
+    let s = String(input).trim();
+    if (!s) return null;
 
-    // 允許 - 或 / 作為分隔
-    const re = /^\s*(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?\s*$/;
-    const m = re.exec(s);
-    if (!m) return null;
+    // 允許用 'T' 當日期與時間的分隔
+    s = s.replace('T', ' ');
 
-    const year = Number(m[1]);
-    const month = Number(m[2]);   // 1..12
-    const day = Number(m[3]);   // 1..31
-    const hour = m[4] !== undefined ? Number(m[4]) : 0;   // 0..23
-    const minute = m[5] !== undefined ? Number(m[5]) : 0;   // 0..59
+    // 切出日期與（可選的）時間
+    const [datePart, timePartRaw] = s.split(' ');
+    if (!datePart) return null;
 
-    // 範圍基本檢查
+    // 日期可用 '-' 或 '/'；月份與日期允許 1 或 2 位數
+    const dateSep = datePart.includes('-') ? '-' : (datePart.includes('/') ? '/' : null);
+    if (!dateSep) return null;
+
+    const [yStr, mStr, dStr] = datePart.split(dateSep);
+    if (!/^\d{4}$/.test(yStr)) return null;
+    if (!/^\d{1,2}$/.test(mStr)) return null;
+    if (!/^\d{1,2}$/.test(dStr)) return null;
+
+    const year = Number(yStr);
+    const month = Number(mStr);
+    const day = Number(dStr);
     if (month < 1 || month > 12) return null;
     if (day < 1 || day > 31) return null;
-    if (hour < 0 || hour > 23) return null;
-    if (minute < 0 || minute > 59) return null;
 
-    // 用「本地時間」建立避免被當成 UTC
+    // 預設時間 00:00
+    let hour = 0, minute = 0;
+
+    // 有時間部分就解析 HH:mm（允許 1~2 位數）
+    if (timePartRaw != null && timePartRaw !== '') {
+        const timePart = timePartRaw.trim();
+        const t = timePart.split(':');
+        if (t.length !== 2) return null;
+        const [hStr, minStr] = t;
+        if (!/^\d{1,2}$/.test(hStr)) return null;
+        if (!/^\d{1,2}$/.test(minStr)) return null;
+        hour = Number(hStr);
+        minute = Number(minStr);
+        if (hour < 0 || hour > 23) return null;
+        if (minute < 0 || minute > 59) return null;
+    }
+
+    // 用「本地時間」建立，避免被當作 UTC
     const d = new Date(year, month - 1, day, hour, minute, 0, 0);
 
-    // 防溢位（例如 2025-02-31 自動跳到 3/3 的情況）
+    // 防止溢位（例如 2025-02-31 會跳到 3/3）
     if (d.getFullYear() !== year || (d.getMonth() + 1) !== month || d.getDate() !== day) return null;
 
     return d;
 }
-
 
 function fmtDate(d) {
     return d.toLocaleString('zh-TW', { hour12: false });
