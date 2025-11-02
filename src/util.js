@@ -31,23 +31,40 @@ function parseDuration(input) {
 }
 
 function parseDateTime(input) {
-    if (!input) return null;
+    // 支援：
+    // YYYY-MM-DD
+    // YYYY-M-D
+    // YYYY/MM/DD
+    // 上述任一 + 空白或 'T' + HH:mm（HH/分鐘可為 1~2 位數）
+    if (!input && input !== 0) return null;
     const s = String(input).trim();
-    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(s);
+
+    // 允許 - 或 / 作為分隔
+    const re = /^\s*(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?\s*$/;
+    const m = re.exec(s);
     if (!m) return null;
 
     const year = Number(m[1]);
-    const month = Number(m[2]);
-    const day = Number(m[3]);
-    const hour = m[4] ? Number(m[4]) : 0;
-    const minute = m[5] ? Number(m[5]) : 0;
+    const month = Number(m[2]);   // 1..12
+    const day = Number(m[3]);   // 1..31
+    const hour = m[4] !== undefined ? Number(m[4]) : 0;   // 0..23
+    const minute = m[5] !== undefined ? Number(m[5]) : 0;   // 0..59
 
+    // 範圍基本檢查
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
+    if (hour < 0 || hour > 23) return null;
+    if (minute < 0 || minute > 59) return null;
+
+    // 用「本地時間」建立避免被當成 UTC
     const d = new Date(year, month - 1, day, hour, minute, 0, 0);
+
+    // 防溢位（例如 2025-02-31 自動跳到 3/3 的情況）
     if (d.getFullYear() !== year || (d.getMonth() + 1) !== month || d.getDate() !== day) return null;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
 
     return d;
 }
+
 
 function fmtDate(d) {
     return d.toLocaleString('zh-TW', { hour12: false });
