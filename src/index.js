@@ -25,10 +25,12 @@ async function logEvent(lines) {
 client.on('interactionCreate', async (i) => {
     if (!i.isChatInputCommand()) return;
     console.log(`[slash] /${i.commandName} by ${i.user.tag} in #${i.channel?.name || 'DM'}`);
-    
+
     try {
         if (i.commandName === 'task' && i.options.getSubcommand() === 'create') {
             if (!isPMOrManager(i)) return i.reply({ content: '你沒有建立任務的權限。', ephemeral: true });
+            console.log('raw dueStr =', JSON.stringify(dueStr));
+
             const title = i.options.getString('title', true);
             const desc = i.options.getString('desc') || '（無描述）';
             const dueStr = i.options.getString('due'); const due = dueStr ? parseDateTime(dueStr) : null;
@@ -62,6 +64,8 @@ client.on('interactionCreate', async (i) => {
         if (i.commandName === 'deadline') {
             if (!i.channel?.isThread()) return i.reply({ content: '請在任務 Thread 內使用。', ephemeral: true });
             if (!isPMOrManager(i)) return i.reply({ content: '你沒有設定截止的權限。', ephemeral: true });
+            console.log('raw dateStr =', JSON.stringify(i.options.getString('date', true)));
+
             const d = parseDateTime(i.options.getString('date', true));
             if (!d) return i.reply({ content: '時間格式錯誤，請用 `YYYY-MM-DD` 或 `YYYY-MM-DD HH:mm`。', ephemeral: true });
             await i.channel.send(`⏰ 更新截止：**${fmtDate(d)}**（由 <@${i.user.id}> 設定）`);
