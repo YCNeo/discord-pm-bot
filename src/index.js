@@ -24,6 +24,8 @@ async function logEvent(lines) {
 
 client.on('interactionCreate', async (i) => {
     if (!i.isChatInputCommand()) return;
+    console.log(`[slash] /${i.commandName} by ${i.user.tag} in #${i.channel?.name || 'DM'}`);
+    
     try {
         if (i.commandName === 'task' && i.options.getSubcommand() === 'create') {
             if (!isPMOrManager(i)) return i.reply({ content: '你沒有建立任務的權限。', ephemeral: true });
